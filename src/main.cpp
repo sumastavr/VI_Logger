@@ -141,7 +141,6 @@ void loop()
   Serial.print(ina1.readBusPower(), 5);
   Serial.println(" W");
 
-
   Serial.print("Shunt voltage: ");
   Serial.print(ina1.readShuntVoltage(), 5);
   Serial.println(" V");
