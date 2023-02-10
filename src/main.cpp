@@ -3,12 +3,33 @@
 #include <Wire.h>
 #include <INA226.h>
 
+#include <Adafruit_GFX.h>    // Core graphics library
+#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+#include <SPI.h>
+
+#define ADC_EN              14 
+#define ADC_PIN             34
+#define BUTTON_1            35
+#define BUTTON_2            0
+
 INA226 ina1(Wire);
 INA226 ina2(Wire);
 INA226 ina3(Wire);
 
-void checkConfig()
-{
+#define TFT_CS        5
+#define TFT_RST       23 // Or set to -1 and connect to Arduino RESET pin
+#define TFT_DC        16
+#define TFT_MOSI 19  // Data out
+#define TFT_SCLK 18  // Clock out
+
+Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
+
+float p = 3.1415926;
+
+//Potentiometer is connected to GPIO 34 (Analog ADC1_CH6) 
+const int ADC_DC = 27;
+
+void checkConfig(){
   Serial.print("Mode:                  ");
   switch (ina1.getMode())
   {
@@ -82,9 +103,126 @@ void checkConfig()
   Serial.println(" W");
 }
 
-void setup() 
+//! Long time delay, it is recommended to use shallow sleep, which can effectively reduce the current consumption
+void espDelay(int ms)
 {
+    esp_sleep_enable_timer_wakeup(ms * 1000);
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+    esp_light_sleep_start();
+}
+
+void testdrawtext(char *text, uint16_t color) {
+  tft.setCursor(0, 0);
+  tft.setTextColor(color);
+  tft.setTextWrap(true);
+  tft.print(text);
+}
+
+void tftPrintTest() {
+  tft.setTextWrap(false);
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setCursor(0, 30);
+  tft.setTextColor(ST77XX_RED);
+  tft.setTextSize(1);
+  tft.println("Hello World!");
+  tft.setTextColor(ST77XX_YELLOW);
+  tft.setTextSize(2);
+  tft.println("Hello World!");
+  tft.setTextColor(ST77XX_GREEN);
+  tft.setTextSize(3);
+  tft.println("Hello World!");
+  tft.setTextColor(ST77XX_BLUE);
+  tft.setTextSize(4);
+  tft.print(1234.567);
+  delay(1500);
+  tft.setCursor(0, 0);
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setTextSize(0);
+  tft.println("Hello World!");
+  tft.setTextSize(1);
+  tft.setTextColor(ST77XX_GREEN);
+  tft.print(p, 6);
+  tft.println(" Want pi?");
+  tft.println(" ");
+  tft.print(8675309, HEX); // print 8,675,309 out in HEX!
+  tft.println(" Print HEX!");
+  tft.println(" ");
+  tft.setTextColor(ST77XX_WHITE);
+  tft.println("Sketch has been");
+  tft.println("running for: ");
+  tft.setTextColor(ST77XX_MAGENTA);
+  tft.print(millis() / 1000);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.print(" seconds.");
+  delay(1500);
+}
+
+void displayResults(int index, float voltage, float power, float current){
+  tft.setTextSize(2);
+  switch(index){
+    case 0: tft.setTextColor(ST77XX_YELLOW);
+            tft.setCursor(0, 0); 
+            tft.print(voltage);
+            tft.print("V");
+            tft.setCursor(80, 0);
+            tft.print(current);
+            tft.print("A");
+            tft.setCursor(160, 0); 
+            tft.print(power);
+            tft.print("W");
+            break;
+    case 1: tft.setTextColor(ST77XX_GREEN);
+            tft.setCursor(0, 20); 
+            tft.print(voltage);
+            tft.print("V");
+            tft.setCursor(80, 20);
+            tft.print(current);
+            tft.print("A");
+            tft.setCursor(160, 20); 
+            tft.print(power);
+            tft.print("W");
+            break;
+    case 2: tft.setTextColor(ST77XX_CYAN);
+            tft.setCursor(0, 40); 
+            tft.print(voltage);
+            tft.print("V");
+            tft.setCursor(80, 40);
+            tft.print(current);
+            tft.print("A");
+            tft.setCursor(160, 40); 
+            tft.print(power);
+            tft.print("W");
+            break;
+  }
+
+}
+
+void setup() {
+
   Serial.begin(115200);
+
+  pinMode(4, OUTPUT);
+  digitalWrite(4,1);
+
+  pinMode(ADC_EN, OUTPUT);
+  digitalWrite(ADC_EN, HIGH);
+
+  tft.init(135, 240);           // Init ST7789 240x135
+  tft.setRotation(3);
+  Serial.println(F("Initialized"));
+
+  tft.fillScreen(ST77XX_BLACK);
+  //testdrawtext("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a tortor imperdiet posuere. ", ST77XX_WHITE);
+  delay(1000);
+
+  displayResults(0,12.4,24.5,24.3);
+  displayResults(1,23.4,4.5,8.3);
+  displayResults(2,52.4,3.5,5.3);
+
+  while(1){
+    //tftPrintTest();
+  }
 
   Serial.println("Initialize INA226");
   Serial.println("-----------------------------------------------");
