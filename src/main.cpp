@@ -234,7 +234,7 @@ void displayResults(int index, float voltage, float power, float current){
             tft.print("Sensor 3:");
             tft.setTextSize(2);
             tft.setCursor(0, startHeight+deltaHeight+deltaHeight); 
-            tft.print("                     ");
+            tft.print("                   ");
             tft.setCursor(0, startHeight+deltaHeight+deltaHeight); 
             tft.print(voltage,precision);
             tft.print("V");
@@ -272,32 +272,31 @@ void dumpSD(){
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
 }
 
-char* sdFileName = "/v.ea";
-
 #define DEBUG 1
+#define DEBUGSD 0
 
 bool appendFile(fs::FS &fs, const char * path, const char * message) {
 
   bool appendSuccess = false;
-  if (DEBUG == 1) {
+  if (DEBUGSD == 1) {
     Serial.print("Appending to file: ");
     Serial.println(path);
   }
   File file = fs.open(path, FILE_APPEND);
   if (!file) {
     appendSuccess = false;
-    if (DEBUG == 1) {
+    if (DEBUGSD == 1) {
       Serial.println("Failed opening the file.");
     }
   }
-  if (file.print(message)) {
+  if (file.println(message)) {
     appendSuccess = true;
-    if (DEBUG == 1) {
+    if (DEBUGSD == 1) {
       Serial.println("Appended successfully.");
     }
   } else {
     appendSuccess = false;
-    if (DEBUG == 1) {
+    if (DEBUGSD == 1) {
       Serial.println("Appending failed.");
     }
   }
@@ -310,45 +309,60 @@ bool appendFile(fs::FS &fs, const char * path, const char * message) {
   }
 }
 
-void setup() {
-
-  Serial.begin(115200);
-
-  //#define SCK  25
-  //#define MISO  27
-  //#define MOSI  26
-  #define CS_SD  33
-
-  spiSD.begin(25, 27, 26);
-
-  if (!SD.begin(CS_SD,spiSD)) {
-    Serial.println("Card Mount Failed");
-    //return;
-    while(1);
-  }else{
-    dumpSD();
-  }
-
-
-  pinMode(4, OUTPUT);
-  digitalWrite(4,1);
-
-  pinMode(ADC_EN, OUTPUT);
-  digitalWrite(ADC_EN, HIGH);
-
-  tft.init(135, 240);           // Init ST7789 240x135
-  tft.setRotation(3);
-  Serial.println(F("Initialized"));
-
+void drawFrame(){
   tft.fillScreen(ST77XX_BLACK);
-  //testdrawtext("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur adipiscing ante sed nibh tincidunt feugiat. Maecenas enim massa, fringilla sed malesuada et, malesuada sit amet turpis. Sed porttitor neque ut ante pretium vitae malesuada nunc bibendum. Nullam aliquet ultrices massa eu hendrerit. Ut sed nisi lorem. In vestibulum purus a tortor imperdiet posuere. ", ST77XX_WHITE);
-  delay(1000);
-
   tft.drawFastHLine(0,27,240,ST77XX_YELLOW);
   tft.drawFastHLine(0,27+30,240,ST77XX_GREEN);
   tft.drawFastHLine(0,27+60,240,ST77XX_CYAN);
+  tft.drawFastHLine(0,117,240,ST77XX_CYAN);
+}
 
-  //tft.drawFastHLine(0,113,240,ST77XX_MAGENTA);
+void displayStatus(String text,int color){
+  tft.setCursor(0, 120);
+  tft.setTextColor(color, ST77XX_BLACK);
+  tft.setTextSize(2);
+  tft.print(text);
+  tft.print("        ");
+}
+
+void setup() {
+
+  // Initialized Serial Port
+  Serial.begin(9600);
+  
+  // Initialized TFT Display
+  pinMode(4, OUTPUT);
+  digitalWrite(4,1);
+  tft.init(135, 240);          
+  tft.setRotation(3);
+  Serial.println(F("Initialized"));
+  tft.fillScreen(ST77XX_BLACK); 
+  uint8_t beginLocY=0;
+  uint8_t locYDelta=30;
+  tft.setCursor(beginLocY, 0);
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setTextSize(2);
+
+  // Initialize SD Card
+  #define CS_SD  33
+  spiSD.begin(25, 27, 26); // SCK, MISO, MOSI
+
+  tft.print("Init SD: ");
+  if (!SD.begin(CS_SD,spiSD)) {
+    Serial.println("Card Mount Failed");
+    tft.setTextColor(ST77XX_RED);
+    tft.print(" FAILED");
+    while(1);
+  }else{
+    dumpSD();
+    tft.setTextColor(ST77XX_GREEN);
+    tft.println(" OK");
+    delay(1000);
+  }
+
+  pinMode(ADC_EN, OUTPUT);
+  digitalWrite(ADC_EN, HIGH);
 
   Serial.println("Initialize INA226");
   Serial.println("-----------------------------------------------");
@@ -362,38 +376,78 @@ void setup() {
   success2 = ina2.begin(0b1000001);
   success3 = ina3.begin(0b1000010);
 
-  //success2 = true;
-  //success3 = true;
-
   // Check if the connection was successful, stop if not
+
+  tft.setTextColor(ST77XX_WHITE);
+  tft.print("Init Sensor 1:");
+
   if(!success1){
     Serial.println("Connection error at Sensor INA 1");
+    tft.setTextColor(ST77XX_RED);
+    tft.print(" FAILED");
     while(1);
+  }else{
+    tft.setTextColor(ST77XX_GREEN);
+    tft.println(" OK");
+    delay(500);
   }
+
+  tft.setTextColor(ST77XX_WHITE);
+  tft.print("Init Sensor 2:");
+  
   if(!success2){
-    Serial.println("Connection error at Sensor INA 3");
+    Serial.println("Connection error at Sensor INA 2");
+    tft.setTextColor(ST77XX_RED);
+    tft.print(" FAILED");
     while(1);
+  }else{
+    tft.setTextColor(ST77XX_GREEN);
+    tft.println(" OK");
+    delay(500);
   }
+
+  tft.setTextColor(ST77XX_WHITE);
+  tft.print("Init Sensor 3:");
+
   if(!success3){
     Serial.println("Connection error at Sensor INA 3");
+    tft.setTextColor(ST77XX_RED);
+    tft.print(" FAILED");
     while(1);
+  }else{
+    tft.setTextColor(ST77XX_GREEN);
+    tft.println(" OK");
+    delay(500);
   }
 
   // Configure INA226
   ina1.configure(INA226_AVERAGES_1, INA226_BUS_CONV_TIME_1100US, INA226_SHUNT_CONV_TIME_1100US, INA226_MODE_SHUNT_BUS_CONT);
+  ina2.configure(INA226_AVERAGES_1, INA226_BUS_CONV_TIME_1100US, INA226_SHUNT_CONV_TIME_1100US, INA226_MODE_SHUNT_BUS_CONT);
+  ina3.configure(INA226_AVERAGES_1, INA226_BUS_CONV_TIME_1100US, INA226_SHUNT_CONV_TIME_1100US, INA226_MODE_SHUNT_BUS_CONT);
 
   // Calibrate INA226. Rshunt = 0.002 ohm, Max excepted current = 4A
   ina1.calibrate(0.002, 2);
+  ina2.calibrate(0.002, 2);
+  ina3.calibrate(0.002, 2);
 
   // Display configuration
   checkConfig();
 
   Serial.println("-----------------------------------------------");
 
+  tft.setTextColor(ST77XX_WHITE);
+  tft.print("Init Clock: ");
+
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
+    tft.setTextColor(ST77XX_RED);
+    tft.print(" FAILED");
     while (1) delay(10);
+  }else{
+    tft.setTextColor(ST77XX_GREEN);
+    tft.println(" OK");
+    delay(2000);
   }
 
   if (rtc.lostPower()) {
@@ -411,25 +465,155 @@ void setup() {
     // after the RTC is powered, lostPower() may still return true.
   }
 
+  pinMode(BUTTON_1,INPUT_PULLUP);
   rtc.start();
 
+  drawFrame();
+  displayStatus("Logging NOT Started", ST77XX_RED);
 
 }
 
-void loop()
-{
+char sdFileName[50];
+bool startLogging=false;
 
-  if (appendFile(SD, sdFileName, "Heyy")) {
-  //success
-  } else { 
-  //failed
+long counterClock=millis();
+long counterLogging=millis();
+long counterReadingInterval=millis();
+long readingInterval=3000;
+long loggingInterval=5000;
+
+float voltageNow[3],currentNow[3],powerNow[3];
+
+long counterNLog=0;
+
+void loop(){
+
+  if (digitalRead(BUTTON_1)==LOW && !startLogging){
+    //Serial.println("StartLogging");
+
+    DateTime now = rtc.now();
+
+    String fileLog="/";
+    fileLog+=String(now.year());
+    fileLog+="-";
+    fileLog+=String(now.month());
+    fileLog+="-";
+    fileLog+=String(now.day());
+    fileLog+="_";
+    fileLog+=String(now.hour());
+    fileLog+="-";
+    fileLog+=String(now.minute());
+    fileLog+="-";
+    fileLog+=String(now.second());
+    fileLog+=".csv";
+
+    Serial.println(fileLog);
+    fileLog.toCharArray(sdFileName,fileLog.length()+1);
+
+    //Serial.println(sdFileName);
+
+    startLogging=true;
+    
+    if (appendFile(SD, sdFileName, "Date,time,Voltage Sensor 1,Current Sensor 1, Power Sensor 1,Voltage Sensor 2,Current Sensor 2, Power Sensor 2,Voltage Sensor 3,Current Sensor 3, Power Sensor 3,")) {
+      
+      String text="Log Started: ";
+      text+=String(counterNLog++);
+      displayStatus(text,ST77XX_GREEN);
+
+    } else { 
+      displayStatus("LOG FAILED",ST77XX_RED);
+    }
+
+    delay(1000);
+  }
+
+  if(startLogging && millis()-counterLogging>loggingInterval){
+    String resultsToLog;
+    char resultsTotal[100];
+
+    DateTime now = rtc.now();
+
+    resultsToLog+=String(now.year());
+    resultsToLog+="-";
+    resultsToLog+=String(now.month());
+    resultsToLog+="-";
+    resultsToLog+=String(now.day());
+    
+    resultsToLog+=",";
+
+    resultsToLog+=String(now.hour());
+    resultsToLog+=":";
+    resultsToLog+=String(now.minute());
+    resultsToLog+=":";
+    resultsToLog+=String(now.second());
+
+    resultsToLog+=",";    
+
+    for (int i=0;i<3;i++){
+      resultsToLog+=String(voltageNow[i],4);
+      resultsToLog+=",";
+      resultsToLog+=String(currentNow[i],4);
+      resultsToLog+=",";
+      resultsToLog+=String(powerNow[i],4);
+      resultsToLog+=",";
+    }
+    resultsToLog.toCharArray(resultsTotal,resultsToLog.length()+1);
+    if (appendFile(SD, sdFileName, resultsTotal)) {
+      String text="Log Started: ";
+      text+=String(counterNLog++);
+      displayStatus(text,ST77XX_GREEN);
+    } else { 
+      displayStatus("LOG FAILED",ST77XX_RED);
+    }
+    counterLogging=millis();
+  }
+
+  if(millis()-counterReadingInterval>readingInterval){
+    
+    voltageNow[0]=ina1.readBusVoltage();
+    currentNow[0]=ina1.readShuntCurrent();
+    powerNow[0]=ina1.readBusPower();
+    displayResults(0,voltageNow[0],currentNow[0],powerNow[0]);
+
+    voltageNow[1]=ina2.readBusVoltage();
+    currentNow[1]=ina2.readShuntCurrent();
+    powerNow[1]=ina2.readBusPower();
+    displayResults(1,voltageNow[1],currentNow[1],powerNow[1]);
+    
+    voltageNow[2]=ina3.readBusVoltage();
+    currentNow[2]=ina3.readShuntCurrent();
+    powerNow[2]=ina3.readBusPower();
+    displayResults(2,voltageNow[2],currentNow[2],powerNow[2]);
+
+    Serial.print(counterNLog);
+    Serial.print("\t");
+
+    for (int i=0;i<3;i++){
+      Serial.print(voltageNow[i],4);
+      //Serial.print(random(100));
+      Serial.print("\t");
+      Serial.print(currentNow[i],4);
+      //Serial.print(random(100));
+      Serial.print("\t");
+      Serial.print(powerNow[i],4);
+      //Serial.print(random(100));
+      if(i<2){
+        Serial.print("\t");
+      }
+    }
+
+    Serial.println();
+    
+    counterReadingInterval=millis();
   }
   
-
-  //spiTFT.begin();
-  //tft.init(135, 240);           // Init ST7789 240x135
+  if (millis()-counterClock>1000){
+    DateTime now = rtc.now();
+    displayDateTime(now.year(),now.month(),now.day(),now.hour(),now.minute(),now.second());
+    counterClock=millis();
+  }
   
-  #ifdef DEBUG
+  #ifndef DEBUG
 
     DateTime now = rtc.now();
 
@@ -488,7 +672,7 @@ void loop()
 
     Serial.println();
   #else
-
+  /*
   Serial.print("Bus voltage:   ");
   Serial.print(ina1.readBusVoltage(), 5);
   Serial.println(" V");
@@ -506,18 +690,7 @@ void loop()
   Serial.println(" A");
 
   Serial.println("");
+  */
   #endif
-
-  delay(1000);
-  
-
- /*
- Serial.print(ina1.readBusVoltage(), 5);
- Serial.print(" ");
- Serial.println(ina1.readBusPower(), 5);
-
- delay(1000);
-*/
-
 
 }
